@@ -1,0 +1,42 @@
+name: Claude Recursive Cascade
+on: [push, workflow_dispatch]
+
+jobs:
+  claude-cascade:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        continue-on-error: true
+
+      - name: Install Claude Code
+        continue-on-error: true
+        run: nix-shell -p nodejs npm --run 'npm install -g @anthropic-ai/claude-code'
+
+      - name: Claude Agent Cascade Execution
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        continue-on-error: true
+        run: |
+          cd ~ && nix-shell -p nodejs expect --run 'expect -c "
+            set timeout 600
+            spawn npx @anthropic-ai/claude-code --dangerously-skip-permissions \"trigger cascade workflows in repositories 0x02, 0x03, 0x04, 0x05 using GitHub CLI\"
+            expect { -re {.*bypass permissions.*} { send \"2\r\" } }
+            expect { -re {.*cascade.*|.*triggered.*|.*Write.*} { exit 0 } timeout { exit 1 } }
+          "'
+
+      - name: Ubuntu Fallback with Claude
+        if: failure()
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y nodejs npm curl
+          cd ~ && npx @anthropic-ai/claude-code --dangerously-skip-permissions "trigger workflows in hex repositories using curl and GitHub API"
+
+      - name: Upload Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-cascade-results
+          path: "*.txt"
+          retention-days: 1
