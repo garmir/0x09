@@ -1,0 +1,38 @@
+name: Limit Testing - Internet_Access
+on: [push, workflow_dispatch]
+
+jobs:
+  limit-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: DeterminateSystems/nix-installer-action@main
+        continue-on-error: true
+
+      - name: Internet_Access Limit Testing
+        continue-on-error: true
+        run: |
+          nix-shell -p curl wget git --run '
+            echo "=== LIMIT TEST: Internet_Access ===" > limit-test-0x09.txt
+            echo "Repository: ${{ github.repository }}" >> limit-test-0x09.txt
+            echo "Timestamp: $(date)" >> limit-test-0x09.txt
+
+            curl -s https
+
+            echo "✅ Limit test completed" >> limit-test-0x09.txt
+          '
+
+      - name: Ubuntu Fallback Limit Test
+        if: failure()
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y curl wget git
+          echo "Ubuntu fallback limit test: Internet_Access" > ubuntu-limit-0x09.txt
+          echo "Basic test completed" >> ubuntu-limit-0x09.txt
+
+      - name: Upload Limit Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: limit-test-Internet_Access-0x09
+          path: "*.txt"
+          retention-days: 7
